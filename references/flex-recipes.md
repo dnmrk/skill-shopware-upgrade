@@ -46,6 +46,14 @@ rm shopware.paas-meta.updates-for-deleted-files.patch
 git commit -m "apply shopware/paas-meta recipe" symfony.lock
 ```
 
+**`shopware/core`** — if `.htaccess` / `public/.htaccess.dist` do not exist in the project, the recipe update writes `shopware.core.updates-for-deleted-files.patch` to the project root. Same rule: delete it before committing.
+
+```bash
+rm shopware.core.updates-for-deleted-files.patch
+```
+
+**`shopware/paas-meta` with customized `.platform/` or `config/services.yaml`** — projects with custom cron jobs, env vars, or service defaults will get merge conflicts. Strategy: `git checkout --ours` for the conflicted files to restore project customizations as base, then manually pick up new additions from the recipe diff (e.g., `MESSENGER_TRANSPORT_DSN` env defaults, updated `NODE_VERSION` / `SHOPWARE_CLI_VERSION`).
+
 ## When to skip a recipe
 
 If a recipe touches a project-customized config file (e.g. `phpcs.xml.dist`, `config/packages/shopware.yaml`) and the update has been available for years, it was almost certainly left unapplied intentionally — the project has diverged from the upstream default. Skip it and note this in the commit or deployment checklist so the team knows it was a deliberate decision.

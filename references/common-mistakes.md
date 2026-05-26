@@ -1,0 +1,33 @@
+# Common Mistakes Reference
+
+Full list. See SKILL.md for the critical subset kept inline.
+
+| Mistake | Fix |
+|---|---|
+| Running commands on host when Docker is present | Always check for `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, or `compose.yaml` first |
+| Assuming `shopware-cli` is available | Confirm it at Step 0; install via Homebrew or the Cloudsmith apt repo if absent. mysqldump fallback covers Phase 1 only — Phase 4 still requires shopware-cli |
+| Creating a new upgrade branch without checking for an existing one | Run `git branch -a \| grep <ticket>` first — a prior attempt may already have the version bump and recipes |
+| Running `composer recipes:update` with uncommitted tracked files | The command needs a clean index — stash the modified tracked files (`git stash push -- path/to/file`), run the recipe, then `git stash pop` |
+| Leaving `shopware.paas-meta.updates-for-deleted-files.patch` in the project root | If `.platform/applications.yaml` doesn't exist, paas-meta recipe update writes this stale patch file — delete it before committing |
+| Running `shopware-cli` on host when Docker is present | `shopware-cli` is also run inside the container — same rule as every other command |
+| Updating all `shopware/*` packages blindly | Only update pinned `shopware/*` packages — scan all entries, not just core/storefront/administration |
+| Skipping `upgrade-check` before bumping version | Extensions may break silently without it |
+| Forgetting `--no-scripts` on `composer update` | Scripts can fail mid-upgrade before build step |
+| Not asking about branch naming convention | Creates branch that won't pass CI naming rules |
+| Running `composer recipes:update` with `-T` | The command is interactive — requires a TTY; drop `-T` from `docker compose exec` |
+| Trusting upgrade-check warnings for a patch upgrade | upgrade-check auto-selects latest major as target; warnings are irrelevant for same-minor patch upgrades |
+| Treating "Not compatible" as a hard blocker for private plugins | upgrade-check queries the Store API — private plugins always show "Not compatible". Read the plugin's own `composer.json` |
+| Forgetting to widen path-repo plugin constraints for major upgrades | All `custom/static-plugins/*/composer.json` need `shopware/core` widened — the constraint blocks resolution even with path repos |
+| Running `composer recipes:update` multiple times without committing between | Each call requires a clean git index — commit after the first recipe before applying the next |
+| Generating deployment checklist before smoke tests pass | Phase 14 only runs after Phase 13 confirms HTTP 200 on storefront and admin with no CRITICAL log entries |
+| Writing generic QA Notes | QA Notes must name each bumped plugin, each applied recipe, and each API fix — testers need scope, not boilerplate |
+| Treating HTTP 200 on /admin as a passing smoke test | The admin can return 200 while broken — visually confirm translated labels or check the page title is "Login \| Shopware Administration" |
+| Tailing prod.log when APP_ENV=dev | Check `.env` for APP_ENV first — use dev.log in dev mode, prod.log in production |
+| Type-hinting SalesChannelContextService (concrete) in plugin constructors | In 6.7 the Commercial/B2B packages inject a decorator that implements the interface but does not extend the concrete class — always use `SalesChannelContextServiceInterface`. PHPStan does NOT catch this — it only surfaces at runtime. Grep during Phase 9b: `grep -rn "SalesChannelContextService[^I]" custom/static-plugins/ --include="*.php" \| grep -v Parameters` |
+| Diagnosing raw snippet keys as a JS bundle problem | Raw snippet keys mean the `/api/_admin/locales` JSON parse failed — curl the endpoint directly and look for HTML injected after the JSON by the Symfony dev toolbar |
+| Using `{% sw_include %}` with a path that no longer exists, even inside `{% if %}` | Shopware's `sw_include` resolves template paths at compile time, not render time — a missing template inside a `{% if not feature('FLAG') %}` block still causes a `LoaderError` on first render. Remove the dead block entirely. |
+| Leaving `shopware.core.updates-for-deleted-files.patch` in the project root | If `.htaccess` / `public/.htaccess.dist` don't exist, `composer recipes:update shopware/core` writes this stale patch file — delete it before committing, same as the paas-meta patch |
+| Treating OOM after `cache:clear` as a real application error | First request after `cache:clear` can exhaust memory while Twig compiles all plugin templates simultaneously in the debug container. If the only CRITICAL log entry is `OutOfMemoryError` at `Template.php` and subsequent requests return 200, the smoke test passes — do not investigate further |
+| Diagnosing `shopware/paas-meta` recipe conflicts as a skip | Projects with custom `.platform/applications.yaml` and `config/services.yaml` always produce merge conflicts — use `git checkout --ours` as the base, then manually pick up new additions from the recipe diff (e.g., MESSENGER_TRANSPORT_DSN env defaults, updated NODE/shopware-cli versions) |
+| Skipping Phase 15 on a "clean" upgrade | Every upgrade surfaces something — a version constraint quirk, an undocumented recipe conflict, a timing issue. If Phase 15 produces nothing, that itself is worth noting |
+| Relying solely on curl for Phase 13 smoke test | curl confirms TCP connectivity and HTTP status, not render correctness. Use `/browser` to visually verify the storefront renders with the correct theme and the admin shows translated labels |

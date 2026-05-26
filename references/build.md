@@ -15,6 +15,14 @@ grep -rn "->getDefinition()" custom/static-plugins/ --include="*.php"
 
 Fix any hits: `$command->getDefinition()::class === SomeDefinition::class` becomes `$command->getEntityName() === SomeDefinition::ENTITY_NAME`.
 
+```bash
+# SalesChannelContextService concrete type breaks with swagcommercial 7.x B2B decorators
+# PHPStan does NOT catch this — only surfaces at runtime when the DI container wires the decorator
+grep -rn "SalesChannelContextService[^I]" custom/static-plugins/ --include="*.php" | grep -v Parameters
+```
+
+Fix any hits: change `SalesChannelContextService $x` to `SalesChannelContextServiceInterface $x` and update the `use` import accordingly.
+
 ## If deployment-helper is installed
 
 ```bash
