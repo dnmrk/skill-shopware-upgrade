@@ -154,6 +154,72 @@
           "value": "The QA Notes section of the deployment checklist specifically names SwagCommercial, notes the constraint bump from ^6.10 to ^7.0, and identifies which features or flows testers should verify."
         }
       ]
+    },
+    {
+      "id": 5,
+      "prompt": "Starting a patch upgrade from 6.6.8.0 to 6.6.10.0. Docker, service `web`, db service `mysql`. shopware-cli is NOT installed inside the container. Database credentials: user `shopware`, password `shopware`, database `shopware`.",
+      "expected_output": "Phase 1 backup uses mysqldump fallback (not shopware-cli). All other commands still prefixed with docker compose exec web.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "mysqldump-fallback-used",
+          "description": "Uses mysqldump fallback for backup since shopware-cli is unavailable",
+          "type": "llm_rubric",
+          "value": "Phase 1 uses `docker compose exec mysql mysqldump` (or equivalent mysqldump invocation) to create the backup — it does NOT attempt to use shopware-cli project dump since the user stated it is not installed."
+        },
+        {
+          "id": "backup-output-correct-path",
+          "description": "Backup is written to tasks/<target_version>/ directory",
+          "type": "llm_rubric",
+          "value": "The mysqldump output is piped to a file under `tasks/6.6.10.0/` with a .sql.gz or similar extension, not dumped to stdout or an arbitrary location."
+        },
+        {
+          "id": "docker-prefix-non-backup-commands",
+          "description": "All non-backup commands are still prefixed with docker compose exec web",
+          "type": "llm_rubric",
+          "value": "Commands for composer, bin/console, and shopware-cli (upgrade-check) are prefixed with `docker compose exec web` — only the backup step uses the db service."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "We need to upgrade from 6.6.5.0 to 6.6.8.0. Docker, service `app`. Before creating a branch, I should mention we already did some prep work — there's a branch called `upgrade/6.6.8.0` in the repo.",
+      "expected_output": "Phase 2 detects the existing branch and surfaces it to the user before creating a new one — does not silently create a duplicate.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "existing-branch-surfaced",
+          "description": "Detects and surfaces the existing upgrade/6.6.8.0 branch before creating a new one",
+          "type": "llm_rubric",
+          "value": "The response explicitly notes that a branch named `upgrade/6.6.8.0` already exists, and asks the user whether to continue from that branch or create a new one — it does not silently run `git checkout -b upgrade/6.6.8.0`."
+        },
+        {
+          "id": "no-silent-duplicate-branch",
+          "description": "Does not create a duplicate branch without asking",
+          "type": "llm_rubric",
+          "value": "The response does NOT issue a `git checkout -b` command for the upgrade branch without first confirming with the user that they want a new branch rather than the existing one."
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "We need to upgrade Shopware from 6.6.3.0 to 6.6.6.0. The project uses a `compose.yaml` file (not docker-compose.yml). Service is `php`.",
+      "expected_output": "Step 0 detects compose.yaml as the Docker Compose file and correctly prefixes all commands with docker compose exec php.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "compose-yaml-detected",
+          "description": "Detects compose.yaml as a valid Docker Compose file",
+          "type": "llm_rubric",
+          "value": "The response recognises `compose.yaml` as the Docker Compose file and does not state that Docker was not found or that commands should run on the host."
+        },
+        {
+          "id": "docker-prefix-used-with-php-service",
+          "description": "All commands are prefixed with docker compose exec php",
+          "type": "llm_rubric",
+          "value": "All shell commands in the upgrade plan (composer, bin/console, shopware-cli) are prefixed with `docker compose exec php`, matching the service name the user provided."
+        }
+      ]
     }
   ]
 }

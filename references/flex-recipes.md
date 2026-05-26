@@ -18,12 +18,32 @@ composer recipes <package>   # shows "since" date and affected files
 
 **Apply one recipe at a time and commit between each.** The command requires a clean git index. Running a second update before committing the first will fail silently or produce a confusing error.
 
+**If the project has uncommitted tracked changes** (e.g. a modified `.gitignore`), stash them first:
+
 ```bash
-# Correct workflow
+git stash push -m "pre-recipe stash" -- path/to/modified/file
+composer recipes:update <package>
+git add -p
+git commit -m "apply <package> recipe"
+git stash pop
+# Repeat for each remaining recipe
+```
+
+```bash
+# Normal workflow (clean working tree)
 composer recipes:update <package>
 git add -p   # review and stage changes
 git commit -m "apply <package> recipe"
 # Then move to the next
+```
+
+## Known recipe side effects
+
+**`shopware/paas-meta`** — if `.platform/applications.yaml` does not exist in the project, the recipe update writes `shopware.paas-meta.updates-for-deleted-files.patch` to the project root. This file is irrelevant to non-PaaS projects — delete it before committing:
+
+```bash
+rm shopware.paas-meta.updates-for-deleted-files.patch
+git commit -m "apply shopware/paas-meta recipe" symfony.lock
 ```
 
 ## When to skip a recipe
