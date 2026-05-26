@@ -1,0 +1,159 @@
+{
+  "skill_name": "shopware-upgrade",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "We need to patch our Shopware from 6.6.3.0 to 6.6.5.2. Running in Docker, service is called `app`. No custom plugins, just core.",
+      "expected_output": "Step-by-step upgrade plan following skill phases, with all commands prefixed by `docker compose exec app`, including shopware-cli inside the container.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "docker-prefix-all-commands",
+          "description": "Every shell command in the upgrade plan is prefixed with `docker compose exec app`",
+          "type": "llm_rubric",
+          "value": "All shell commands shown (shopware-cli, composer, bin/console) are prefixed with `docker compose exec app`. No command runs bare on the host."
+        },
+        {
+          "id": "no-infrastructure-gate",
+          "description": "Phase 6 infrastructure gate is omitted or skipped for a patch upgrade",
+          "type": "llm_rubric",
+          "value": "The response does not include an infrastructure gate check (PHP version, Redis, Elasticsearch compatibility) — that is only relevant for major version upgrades."
+        },
+        {
+          "id": "upgrade-check-warning-noted",
+          "description": "Upgrade-check output is contextualized for a same-minor patch target",
+          "type": "llm_rubric",
+          "value": "The response explains or notes that upgrade-check warnings may be for a newer major version and are not blockers for this patch upgrade."
+        },
+        {
+          "id": "maintenance-mode-bracketed",
+          "description": "Maintenance mode is enabled before the version bump and disabled at the end",
+          "type": "llm_rubric",
+          "value": "The plan enables maintenance mode before the version bump or composer update, and disables it only after the build is confirmed successful."
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Time to move our production Shopware from 6.6.8.0 to 6.7.0.0. Running directly on the server, no Docker. We've got shopware/storefront, shopware/administration, and 4 third-party plugins. Help me plan this upgrade.",
+      "expected_output": "Step-by-step major upgrade plan with infrastructure gate check (PHP/Redis/ES), extension compatibility check, maintenance mode, and no Docker prefixes.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "no-docker-prefix",
+          "description": "No docker compose exec prefix on any commands",
+          "type": "llm_rubric",
+          "value": "No commands are prefixed with `docker compose exec`. All commands run directly (bare bin/console, composer, etc.)."
+        },
+        {
+          "id": "infrastructure-gate-present",
+          "description": "Infrastructure gate is included for the major upgrade",
+          "type": "llm_rubric",
+          "value": "The plan includes an infrastructure gate step checking PHP version, Redis/Valkey compatibility, and Elasticsearch/OpenSearch compatibility against Shopware 6.7 requirements."
+        },
+        {
+          "id": "extension-compatibility-check",
+          "description": "Extension compatibility check is included before version bump",
+          "type": "llm_rubric",
+          "value": "The plan runs shopware-cli project upgrade-check before bumping composer.json constraints."
+        },
+        {
+          "id": "version-bump-pinned-packages",
+          "description": "Version bump covers storefront and administration since they are explicitly listed",
+          "type": "llm_rubric",
+          "value": "The plan updates `shopware/storefront` and `shopware/administration` constraints in composer.json, since the user confirmed these are explicit top-level deps."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I want to upgrade Shopware. Our composer.json currently has `shopware/core: ~6.6.0`. What do I need to do?",
+      "expected_output": "Clarification of target version or sensible default, environment detection (Docker check), then phased upgrade plan.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "asks-for-target-version",
+          "description": "Asks the user for the target version before proceeding",
+          "type": "llm_rubric",
+          "value": "The response asks the user what target version they want to upgrade to (or at minimum what the goal is — patch, minor, or major) before generating a full plan."
+        },
+        {
+          "id": "environment-detection",
+          "description": "Instructs checking for Docker before running any commands",
+          "type": "llm_rubric",
+          "value": "The response includes a step to check for docker-compose.yml or compose.yml to determine whether commands should be prefixed with docker compose exec."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "We need to upgrade from Shopware 6.6.7.0 to 6.7.1.0. Docker, service is `shop`. We have two custom plugins in custom/static-plugins/ (our own, not on the store) and one plugin from a private Packagist registry (swagplatformsecurity). The upgrade-check output flagged both custom plugins as 'Not available in Store' and swagplatformsecurity as 'Not compatible'.",
+      "expected_output": "Major upgrade plan that correctly handles: path-repo plugin constraint widening, private Packagist plugin verification via composer.json (not store API), and does NOT block on the 'Not available in Store' flags for custom plugins.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "path-repo-constraint-widening",
+          "description": "Widens shopware/core in custom/static-plugins/ composer.json files",
+          "type": "llm_rubric",
+          "value": "The plan includes widening the `shopware/core` require constraint in each plugin under custom/static-plugins/ (e.g. from `~6.6.0` to `^6.6 || ^6.7`), not just bumping the root composer.json."
+        },
+        {
+          "id": "private-plugin-verified-via-composer-json",
+          "description": "Verifies swagplatformsecurity compatibility by reading its composer.json, not trusting upgrade-check",
+          "type": "llm_rubric",
+          "value": "The plan reads the swagplatformsecurity plugin's own composer.json require constraints to determine compatibility — it does not treat the 'Not compatible' upgrade-check flag as a definitive blocker for a non-public plugin."
+        },
+        {
+          "id": "not-available-in-store-not-a-blocker",
+          "description": "Does not treat 'Not available in Store' as a compatibility blocker for path-repo plugins",
+          "type": "llm_rubric",
+          "value": "The plan correctly explains that 'Not available in Store' for the custom/static-plugins is expected (they are not published to the Shopware store) and does not block the upgrade on this basis."
+        },
+        {
+          "id": "swagplatformsecurity-constraint-bump",
+          "description": "Identifies that swagplatformsecurity likely needs a constraint bump for 6.7",
+          "type": "llm_rubric",
+          "value": "The plan flags that swagplatformsecurity may need a major constraint bump (e.g. ^3.0 → ^4.0) for Shopware 6.7 compatibility and includes a step to verify and update it."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The composer update and build are done for our 6.6.5.0 → 6.7.0.0 upgrade. Branch is `upgrade/6.7.0.0`. We're on Docker, service `app`. Storefront URL is https://myshop.local, admin is https://myshop.local/admin. One plugin (SwagCommercial) had its constraint bumped from ^6.10 to ^7.0. No Flex recipes were applied. Now run the smoke tests and generate the deployment checklist.",
+      "expected_output": "Smoke test execution against the provided URLs, log check in prod.log, then a deployment checklist written to tasks/6.7.0.0/deployment-checklist.md with QA Notes specific to the SwagCommercial plugin bump.",
+      "files": [],
+      "assertions": [
+        {
+          "id": "smoke-test-storefront-url",
+          "description": "Curls the provided storefront URL and checks for HTTP 200",
+          "type": "llm_rubric",
+          "value": "The response includes a curl command against https://myshop.local and checks that the response code is 200."
+        },
+        {
+          "id": "smoke-test-admin-url",
+          "description": "Curls the provided admin URL and checks for HTTP 200",
+          "type": "llm_rubric",
+          "value": "The response includes a curl command against https://myshop.local/admin and checks that the response code is 200."
+        },
+        {
+          "id": "log-check-included",
+          "description": "Checks prod.log for CRITICAL or ERROR entries as part of the smoke test",
+          "type": "llm_rubric",
+          "value": "The response includes a command to tail prod.log and grep for ERROR or CRITICAL entries before generating the deployment checklist."
+        },
+        {
+          "id": "checklist-written-to-correct-path",
+          "description": "Deployment checklist is written to tasks/6.7.0.0/deployment-checklist.md",
+          "type": "llm_rubric",
+          "value": "The deployment checklist file is created at tasks/6.7.0.0/deployment-checklist.md, not a generic location."
+        },
+        {
+          "id": "qa-notes-reference-swagcommercial",
+          "description": "QA Notes specifically mention SwagCommercial and the constraint bump",
+          "type": "llm_rubric",
+          "value": "The QA Notes section of the deployment checklist specifically names SwagCommercial, notes the constraint bump from ^6.10 to ^7.0, and identifies which features or flows testers should verify."
+        }
+      ]
+    }
+  ]
+}
