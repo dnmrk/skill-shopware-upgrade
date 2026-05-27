@@ -53,7 +53,10 @@ tail -n 100 var/log/<APP_ENV>.log | grep -E "ERROR|CRITICAL"
 
 If any 5xx responses or CRITICAL log entries appear: **stop, report the errors to the user, do not proceed to Phase 14.**
 
-**OOM exception after `cache:clear` — not a real error:** The first request after `cache:clear` can exhaust memory while Twig compiles all plugin templates simultaneously in the debug container. If the only CRITICAL log entry is `OutOfMemoryError` at `Template.php` and subsequent requests return 200, the smoke test passes — do not investigate further.
+**OOM at `Template.php` — distinguish transient from persistent:**
+
+- **Transient (not a real error):** First request after `cache:clear` exhausts memory while Twig simultaneously compiles all plugin templates in the debug container. Signal: `OutOfMemoryError` is the *only* CRITICAL entry and **subsequent requests return 200**. The smoke test passes — do not investigate further.
+- **Persistent (real error — circular template loop):** OOM appears on **every** storefront or ESI request and is accompanied by `Maximum call stack size of ... bytes reached. Infinite recursion?`. A plugin's `sw_extends` chain has no terminating base template. In 6.7 the most common cause is a plugin still extending `storefront/layout/navigation/navigation.html.twig` (removed in 6.7 — moved to `storefront/layout/navbar/navbar.html.twig`). Without a core base to terminate the chain, Shopware's template resolver wraps remaining plugin overrides in an infinite loop. **Grep:** `grep -rn "layout/navigation/navigation.html.twig" custom/static-plugins/ --include="*.twig"`. Confirm the loop by inspecting compiled `.php` files in `var/cache/dev_*/twig/` — check `doGetParent()` return values for A→B→A circular references.
 
 ## 6. Visual browser verification
 

@@ -236,3 +236,4 @@ Use a **low-cost model** (Haiku) for subagents that only run shell commands (bac
 | Trusting upgrade-check warnings for a patch upgrade | upgrade-check targets latest major — warnings are irrelevant for same-minor patch upgrades |
 | Treating HTTP 200 on /admin as a passing smoke test | Admin can return 200 while broken — read `references/smoke-test.md` for full verification |
 | Type-hinting SalesChannelContextService (concrete) in plugin constructors | In 6.7+ B2B decorators don't extend the concrete class — always use `SalesChannelContextServiceInterface`; PHPStan misses this, only surfaces at runtime |
+| `sw_extends` on old navigation path causes persistent OOM | `storefront/layout/navigation/navigation.html.twig` removed in 6.7 — creates infinite template loop. Grep: `grep -rn "layout/navigation/navigation.html.twig" custom/static-plugins/ --include="*.twig"`. Migrate to `storefront/layout/navbar/navbar.html.twig` — see `references/common-mistakes.md` |

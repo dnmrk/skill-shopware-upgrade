@@ -23,6 +23,14 @@ grep -rn "SalesChannelContextService[^I]" custom/static-plugins/ --include="*.ph
 
 Fix any hits: change `SalesChannelContextService $x` to `SalesChannelContextServiceInterface $x` and update the `use` import accordingly.
 
+```bash
+# storefront/layout/navigation/navigation.html.twig was removed in 6.7
+# Plugins still extending this path create an infinite sw_extends loop → persistent OOM on every request
+grep -rn "layout/navigation/navigation.html.twig" custom/static-plugins/ --include="*.twig"
+```
+
+Fix any hits: delete the plugin override of the old path and create a new `storefront/layout/navbar/navbar.html.twig` that extends `@Storefront/storefront/layout/navbar/navbar.html.twig`, overriding `layout_navbar_nav_element` or `layout_navbar_menu_items` with the custom nav logic. Also audit header templates for `sw_include` calls to the old navigation path and remove them — `layout_header_navigation` in ThemeWare 6.7 already renders `navbar.html.twig`.
+
 ## If deployment-helper is installed
 
 ```bash
