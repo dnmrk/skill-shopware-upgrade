@@ -18,6 +18,7 @@ Step-by-step Shopware version upgrade. Use TaskCreate for each phase so progress
 - **Never skip Phase 4 (compatibility check)** — extensions break silently without it.
 - **Every command runs inside the container** — detect Docker at Step 0 before touching anything else.
 - **Never proceed to Phase 14 (deployment checklist) until Phase 13 (smoke test) passes** — HTTP 200 alone is not sufficient.
+- **Never skip Phase 11 (Flex recipes)** — always run `composer recipes | grep "update available"` after the version bump and apply any pending recipes before smoke testing.
 - **Never skip Phase 15 (lessons)** — every upgrade produces learnings; capture them before closing the branch.
 - **Reference files are required context, not optional extras** — read the relevant one before acting on its phase, not after.
 - **Never treat upgrade-check output as a final verdict** — always cross-reference private/path-repo plugins against their own `composer.json`.
@@ -49,7 +50,7 @@ Step-by-step Shopware version upgrade. Use TaskCreate for each phase so progress
 - Major upgrades (e.g. 6.6 → 6.7) require the **infrastructure gate** (Phase 6) before the version bump.
 - `upgrade-check` evaluates against the **latest Shopware version**, not your target — patch-upgrade warnings are irrelevant.
 - Private/path-repo plugins **always show "Not compatible"** in upgrade-check — inspect the plugin's own `composer.json` instead.
-- `composer recipes:update` requires **TTY** and a **clean git index** between each recipe — never batch without committing.
+- `composer recipes:update` requires a **clean git index** between each recipe — never batch without committing. TTY is only required when the recipe produces merge conflicts that need manual resolution.
 - HTTP 200 on `/admin` is **not a passing smoke test** — confirm translated labels or verify the page title is "Login | Shopware Administration".
 
 ## Source Trust Hierarchy
@@ -86,6 +87,9 @@ shopware-cli version                                  # no Docker
 ## Upgrade Phases
 
 Use **TaskCreate** to create one todo per phase. Mark each complete as you finish it.
+
+**Required phases — create a task for every one of these, no exceptions:**
+Phase 1 (Backup), Phase 2 (Branch), Phase 4 (Compatibility check), Phase 7 (Version bump), Phase 8 (Composer update), Phase 9 (Build), Phase 10 (Commit), **Phase 11 (Flex recipes)**, Phase 13 (Smoke test), Phase 14 (Deployment checklist), Phase 15 (Lessons).
 
 ### Phase 1 — Backup
 
@@ -218,7 +222,7 @@ After every upgrade, close the loop. This phase must always run — even if the 
 - [`references/smoke-test.md`](references/smoke-test.md) — APP_ENV detection, curl checks, raw snippet key diagnosis, log triage, browser visual verification
 - [`references/deployment-checklist.md`](references/deployment-checklist.md) — full checklist template, QA Notes rules
 - [`references/lessons-workflow.md`](references/lessons-workflow.md) — lessons format, skill improvement proposals, upgrade completion checklist
-- [`references/common-mistakes.md`](references/common-mistakes.md) — full 27-row common mistakes reference
+- [`references/common-mistakes.md`](references/common-mistakes.md) — full common mistakes reference
 
 ## Model Usage
 
@@ -237,3 +241,4 @@ Use a **low-cost model** (Haiku) for subagents that only run shell commands (bac
 | Treating HTTP 200 on /admin as a passing smoke test | Admin can return 200 while broken — read `references/smoke-test.md` for full verification |
 | Type-hinting SalesChannelContextService (concrete) in plugin constructors | In 6.7+ B2B decorators don't extend the concrete class — always use `SalesChannelContextServiceInterface`; PHPStan misses this, only surfaces at runtime |
 | `sw_extends` on old navigation path causes persistent OOM | `storefront/layout/navigation/navigation.html.twig` removed in 6.7 — creates infinite template loop. Grep: `grep -rn "layout/navigation/navigation.html.twig" custom/static-plugins/ --include="*.twig"`. Migrate to `storefront/layout/navbar/navbar.html.twig` — see `references/common-mistakes.md` |
+| Patch upgrade causes 500 via `ArgumentCountError` on `StateMachineRegistry` | Shopware 6.6.10.18 added `StateMachineLocker` as a 6th constructor arg. Plugins decorating `StateMachineRegistry` must inject and forward it. Grep: `grep -rn "StateMachineRegistry" custom/static-plugins/ --include="*.php"` |
