@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shopware Upgrade"
+  short_description: "Plan and execute Shopware upgrades"
+  default_prompt: "Use $shopware-upgrade to upgrade this Shopware project to the target version."
