@@ -4,7 +4,7 @@ After every upgrade, close the loop. This phase must always run — even if the 
 
 ## Step 1 — Write lessons to `tasks/lessons.md`
 
-Review the upgrade from Phase 0 to 14 and capture anything that:
+Review the upgrade from Step 0 through Phase 15 and capture anything that:
 - Was surprising, unclear, or not covered by the skill
 - Required manual investigation or user clarification
 - Caused a phase to be retried or reordered

@@ -13,7 +13,7 @@ Fill in all placeholders. The QA Notes section must be tailored — do not leave
 
 **Upgrade path:** <current_version> → <target_version>  
 **Branch:** <branch-name>  
-**Prepared by:** Claude Code  
+**Prepared by:** Upgrade agent
 **Date:** <YYYY-MM-DD>
 
 ---

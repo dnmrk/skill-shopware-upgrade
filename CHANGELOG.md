@@ -2,6 +2,36 @@
 
 All notable changes to the `shopware-upgrade` skill.
 
+## [1.3.0] — 2026-06-04
+
+### Added
+
+- README: full 15-phase table with a one-line description per phase and notes on conditions (major-only gate, fallback behaviour, commit-between rule).
+
+### Changed
+
+- Step 0: `shopware-cli` is now **auto-installed inside the container** when absent — no user prompt, no Phase 4 skip. The install script detects architecture (`uname -m`), maps to the correct GitHub release binary (`arm64` / `amd64`), downloads via `curl`, and installs to `/var/www/html/shopware-cli` (writable by `www-data`; `/usr/local/bin` is not). Install is invoked via full path for the remainder of the upgrade.
+- `environment-setup.md`: replaced the vague "check the image's package manager" container install note with the exact auto-install script and path rationale.
+
+### Fixed
+
+- Step 0 version check used `shopware-cli version` (invalid command — exits with `FATAL unknown command "version"`). Corrected to `shopware-cli --version` in both `SKILL.md` and `environment-setup.md`.
+
+---
+
+## [1.2.0] — 2026-06-04
+
+### Added
+
+- Codex support through `agents/openai.yaml` with display metadata and a `$shopware-upgrade` default prompt.
+
+### Changed
+
+- Progress tracking instructions now support Codex `update_plan` and Claude Code `TaskCreate`.
+- README installation and usage instructions now cover both Codex and Claude Code.
+- Replaced model-vendor-specific subagent guidance with portable subagent usage guidance.
+- Deployment checklist template now uses an agent-neutral prepared-by label.
+
 ## [1.1.0] — 2026-05-26
 
 ### Added

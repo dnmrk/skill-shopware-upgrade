@@ -11,7 +11,7 @@ allowed-tools:
 
 ## Overview
 
-Step-by-step Shopware version upgrade. Use TaskCreate for each phase so progress is visible. Detect Docker first — every command runs inside the container if found.
+Step-by-step Shopware version upgrade. Track every phase with the host agent's visible task tool when available (Codex: `update_plan`; Claude Code: `TaskCreate`). Detect Docker first — every command runs inside the container if found.
 
 ## Hard Constraints
 
@@ -41,7 +41,7 @@ Step-by-step Shopware version upgrade. Use TaskCreate for each phase so progress
 | Mode | Do |
 |---|---|
 | **Planning / scoping** | Detect version from `composer.json`, classify upgrade type (patch/minor/major), run infrastructure gate if major, surface unknowns before starting phases |
-| **Executing upgrade** | Follow phases in order, read the phase reference on entry, mark TaskCreate todos complete as you go, stop at blockers rather than pushing through |
+| **Executing upgrade** | Follow phases in order, read the phase reference on entry, mark plan/task entries complete as you go, stop at blockers rather than pushing through |
 | **Post-upgrade review** | Pin baseline version, walk full Phase 13 smoke test, tailor QA Notes to what actually changed — plugins bumped, recipes applied, API fixes made |
 
 ## Cross-Cutting Invariants
@@ -78,15 +78,15 @@ docker compose exec <service> <command>
 Confirm `shopware-cli` is available:
 
 ```bash
-docker compose exec <service> shopware-cli version   # Docker
-shopware-cli version                                  # no Docker
+docker compose exec <service> shopware-cli --version   # Docker
+shopware-cli --version                                  # no Docker
 ```
 
-→ **If `shopware-cli` is not found, read `references/environment-setup.md`** for install options and the mysqldump fallback decision.
+→ **If `shopware-cli` is not found, install it automatically** — read `references/environment-setup.md` for the exact install script. Do **not** ask the user or skip Phase 4; just install and proceed.
 
 ## Upgrade Phases
 
-Use **TaskCreate** to create one todo per phase. Mark each complete as you finish it.
+Create visible progress tracking before starting the phases. In Codex, use `update_plan`; in Claude Code, use `TaskCreate`. Mark each phase complete as you finish it.
 
 **Required phases — create a task for every one of these, no exceptions:**
 Phase 1 (Backup), Phase 2 (Branch), Phase 4 (Compatibility check), Phase 7 (Version bump), Phase 8 (Composer update), Phase 9 (Build), Phase 10 (Commit), **Phase 11 (Flex recipes)**, Phase 13 (Smoke test), Phase 14 (Deployment checklist), Phase 15 (Lessons).
@@ -224,9 +224,9 @@ After every upgrade, close the loop. This phase must always run — even if the 
 - [`references/lessons-workflow.md`](references/lessons-workflow.md) — lessons format, skill improvement proposals, upgrade completion checklist
 - [`references/common-mistakes.md`](references/common-mistakes.md) — full common mistakes reference
 
-## Model Usage
+## Subagent Usage
 
-Use a **low-cost model** (Haiku) for subagents that only run shell commands (backup, composer, cache:clear). Reserve Sonnet/Opus for decision points: compatibility review, infrastructure gate, recipe diffs.
+If subagents are available, delegate command-only phases such as backup, composer operations, or cache clearing to inexpensive workers. Keep compatibility review, infrastructure gates, recipe diffs, and API remediation in the main reasoning flow unless the user explicitly asks for parallel review.
 
 ## Common Mistakes
 
