@@ -53,6 +53,32 @@ tail -n 100 var/log/<APP_ENV>.log | grep -E "ERROR|CRITICAL"
 
 If any 5xx responses or CRITICAL log entries appear: **stop, report the errors to the user, do not proceed to Phase 14.**
 
+**Decide transient vs persistent by signature, not by retrying.** Count the three signatures separately — a huge `OutOfMemoryError` count is not itself alarming:
+
+```bash
+for pat in 'OutOfMemoryError' 'Infinite recursion' 'Maximum call stack'; do
+  printf "%-22s %s\n" "$pat" "$(grep -c "$pat" var/log/<APP_ENV>.log)"
+done
+```
+
+`Infinite recursion` / `Maximum call stack` at **zero** rules out the circular-template loop outright, however high the `OutOfMemoryError` count is.
+
+Then establish whether the OOM predates the upgrade:
+
+```bash
+grep 'OutOfMemoryError' var/log/<APP_ENV>.log | grep -oE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort | uniq -c
+```
+
+Occurrences spread evenly across days **before** the upgrade = pre-existing. Report it as a separate ticket and **pass the phase** — do not treat a long-standing issue as an upgrade regression.
+
+Also identify the route:
+
+```bash
+grep -A2 'OutOfMemoryError' var/log/<APP_ENV>.log | grep -oE '"(uri|route)":"[^"]{0,90}' | sort | uniq -c | sort -rn | head -5
+```
+
+An OOM confined to `api.notification.message` / `api.action.message-queue.consume` / `api.info.queue` is **admin message-queue polling** (usually no messenger worker running, so the queue drains over HTTP), not a storefront defect. It recurs about once a minute for as long as an admin tab is open, which can look like a persistent fault while the storefront is entirely healthy.
+
 **OOM at `Template.php` — distinguish transient from persistent:**
 
 - **Transient (not a real error):** First request after `cache:clear` exhausts memory while Twig simultaneously compiles all plugin templates in the debug container. Signal: `OutOfMemoryError` is the *only* CRITICAL entry and **subsequent requests return 200**. The smoke test passes — do not investigate further.

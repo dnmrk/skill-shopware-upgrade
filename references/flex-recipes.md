@@ -6,6 +6,8 @@
 composer recipes | grep "update available"
 ```
 
+**Use `grep`, never `tail`.** The recipe list is alphabetical, so `tail -30` cuts off the top and hides early packages — `shopware/administration` sorts before `shopware/core` and disappears first. Re-run the `grep` form after each recipe you apply to confirm what genuinely remains.
+
 Review each before applying:
 
 ```bash

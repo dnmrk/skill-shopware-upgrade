@@ -30,7 +30,7 @@ Step-by-step Shopware version upgrade. Track every phase with the host agent's v
 |---|---|---|
 | compatibility, upgrade-check, plugin warnings, "Not compatible" | `compatibility-check.md` | `version-bump.md` if major upgrade |
 | composer.json, version constraint, path-repo, store plugin, constraint conflict | `version-bump.md` | `compatibility-check.md` if warnings are ambiguous |
-| build, deployment-helper, OrbStack, messenger, removed API | `build.md` | `version-bump.md` if major upgrade broke APIs |
+| build, deployment-helper, OrbStack, messenger, removed API, **source checkout / vendor install mode, split-version vendor, PHPStan after bump** | `build.md` | `version-bump.md` if major upgrade broke APIs |
 | symfony recipes, flex, recipe update, recipe out of date | `flex-recipes.md` | — |
 | smoke test, 5xx responses, raw snippet keys, HTTP 200 but broken admin | `smoke-test.md` | `deployment-checklist.md` once passing |
 | deployment checklist, QA notes | `deployment-checklist.md` | — |
@@ -48,7 +48,8 @@ Step-by-step Shopware version upgrade. Track every phase with the host agent's v
 
 - Read the target version from `composer.json` — **never assume it**.
 - Major upgrades (e.g. 6.6 → 6.7) require the **infrastructure gate** (Phase 6) before the version bump.
-- `upgrade-check` evaluates against the **latest Shopware version**, not your target — patch-upgrade warnings are irrelevant.
+- `upgrade-check` auto-selects the **latest** Shopware version. Read the `INFO Auto selected version <x>` line and compare it to your target: if they **match**, the warnings are directly relevant and must be acted on. Only discount them when the auto-selected version is a **newer major/minor than your target**.
+- After **any** failed `composer update`, `composer.lock` can be fully correct while `vendor/` holds a **split-version tree**. Verify on disk before continuing — never trust the lock alone.
 - Private/path-repo plugins **always show "Not compatible"** in upgrade-check — inspect the plugin's own `composer.json` instead.
 - `composer recipes:update` requires a **clean git index** between each recipe — never batch without committing. TTY is only required when the recipe produces merge conflicts that need manual resolution.
 - HTTP 200 on `/admin` is **not a passing smoke test** — confirm translated labels or verify the page title is "Login | Shopware Administration".
@@ -83,6 +84,19 @@ shopware-cli --version                                  # no Docker
 ```
 
 → **If `shopware-cli` is not found, install it automatically** — read `references/environment-setup.md` for the exact install script. Do **not** ask the user or skip Phase 4; just install and proceed.
+
+Confirm no `shopware/*` package is a git **source** checkout:
+
+```bash
+docker compose exec <service> find vendor -maxdepth 3 -name .git
+```
+
+→ **If any `vendor/shopware/*` path appears, fix it before Phase 8.** Composer refuses to
+update a source checkout that has uncommitted changes, and admin/storefront builds write
+compiled assets *into* `vendor/shopware/*/Resources/public/` — so the tree is almost always
+dirty. The failure surfaces at the worst possible moment: **after** `composer.lock` has been
+rewritten, leaving a split-version vendor tree.
+Read `references/build.md` § "Vendor install mode — source checkouts abort the upgrade".
 
 ## Upgrade Phases
 
@@ -186,6 +200,8 @@ git commit -m "<branch>: upgrade Shopware to <target_version>"
 composer recipes | grep "update available"
 ```
 
+Use that command **verbatim** — never `tail` the output. The list is alphabetical, so `tail -N` truncates the top and silently hides early entries like `shopware/administration`.
+
 → **Read `references/flex-recipes.md`** for the full workflow: TTY requirement, apply-one-at-a-time rule, and when to skip.
 
 ### Phase 12 — Maintenance Off
@@ -237,7 +253,9 @@ If subagents are available, delegate command-only phases such as backup, compose
 | Running commands on host when Docker is present | Always check for compose file first — every command runs inside the container |
 | Assuming `shopware-cli` is available | Confirm at Step 0; read `references/environment-setup.md` if absent |
 | Treating "Not compatible" as a hard blocker for private plugins | upgrade-check queries Store API — private plugins always show "Not compatible"; read the plugin's own `composer.json` |
-| Trusting upgrade-check warnings for a patch upgrade | upgrade-check targets latest major — warnings are irrelevant for same-minor patch upgrades |
+| Discounting upgrade-check warnings because "it's only a patch upgrade" | upgrade-check auto-selects the **latest** release and prints `INFO Auto selected version <x>`. Read that line: if it **equals your target** (common when upgrading to the newest patch) the warnings are real signal. Only discount them when it names a version newer than your target |
+| Assuming `vendor/shopware/*` is a dist install | Source (git) checkouts abort `composer update` with `Source directory ... has uncommitted changes`, **after** the lock is rewritten — leaving a split-version vendor tree. Detect at Step 0: `find vendor -maxdepth 3 -name .git`. Fix by `rm -rf` + `composer install --prefer-dist`, not by cleaning the dirty files |
+| Trusting `composer.lock` after a failed `composer update` | The lock can be fully correct while `vendor/` is half-updated. `bin/console --version` reports core only, so it also looks fine. Verify each package on disk against the lock |
 | Treating HTTP 200 on /admin as a passing smoke test | Admin can return 200 while broken — read `references/smoke-test.md` for full verification |
 | Type-hinting SalesChannelContextService (concrete) in plugin constructors | In 6.7+ B2B decorators don't extend the concrete class — always use `SalesChannelContextServiceInterface`; PHPStan misses this, only surfaces at runtime |
 | `sw_extends` on old navigation path causes persistent OOM | `storefront/layout/navigation/navigation.html.twig` removed in 6.7 — creates infinite template loop. Grep: `grep -rn "layout/navigation/navigation.html.twig" custom/static-plugins/ --include="*.twig"`. Migrate to `storefront/layout/navbar/navbar.html.twig` — see `references/common-mistakes.md` |

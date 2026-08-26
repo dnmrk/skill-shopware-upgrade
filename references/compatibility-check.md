@@ -9,7 +9,20 @@ docker compose exec <service> shopware-cli project upgrade-check --no-interactio
 
 ## Warning: upgrade-check auto-selects the latest Shopware version
 
-`upgrade-check` always evaluates compatibility against the **latest available Shopware version**, not your target. For a patch upgrade (e.g. 6.6.10.x → 6.6.10.y), any "Not compatible" warnings shown are for a newer major and are completely irrelevant. Only treat incompatibility warnings as blockers if you are actually targeting that version.
+`upgrade-check` evaluates compatibility against the **latest available Shopware version**, which is not necessarily your target. It prints which one it picked:
+
+```
+INFO  Auto selected version 6.7.12.2
+```
+
+**Read that line and compare it to your target before discounting anything:**
+
+| Auto-selected vs target | Meaning |
+|---|---|
+| **Same** (your target *is* the latest release) | Warnings are **directly relevant** — act on them. This is common when upgrading to the newest patch. |
+| **Newer major/minor than your target** | Warnings describe a version you are not going to — irrelevant, discount them. |
+
+Do not apply the blanket rule "patch-upgrade warnings are always irrelevant". When you are moving to the current latest patch, the auto-selected version and your target coincide and the output is real signal.
 
 ## Handling proprietary and private-registry plugins
 
@@ -24,6 +37,15 @@ cat custom/static-plugins/<PluginName>/composer.json | grep -A2 '"require"'
 ```
 
 A constraint like `^6.6 || ^6.7` or `^6.7` means the plugin is already compatible. A `~6.6.0` or `<6.7` constraint is the real blocker.
+
+### "Not available in Store" ≠ "Not compatible"
+
+These are two different verdicts and only one of them can ever block:
+
+| Verdict | Meaning | Blocker? |
+|---|---|---|
+| **"Not available in Store"** | The Store API lookup found nothing. Normal and expected for *every* path-repo / private plugin. | **Never** |
+| **"Not compatible"** | The plugin *was* found and your target exceeds its declared max version. | **Possibly** — verify against the plugin's own `composer.json`, since Store metadata lags vendor releases |
 
 ## Decision after reviewing output
 
